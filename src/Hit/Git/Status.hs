@@ -26,6 +26,7 @@ data PatchType
     | Unmerged
     | Unknown
     | BrokenPairing
+    deriving stock (Show)
 
 -- | Map conventional characters to 'PatchType'
 parsePatchType :: Text -> Maybe PatchType
@@ -64,7 +65,7 @@ displayPatchType = \case
 data DiffName = DiffName
     { diffNameFile :: !Text       -- ^ file name
     , diffNameType :: !PatchType  -- ^ type of the changed file
-    }
+    } deriving stock (Show)
 
 parseDiffName :: [Text] -> Maybe DiffName
 parseDiffName [t, name] = DiffName name <$> parsePatchType t
@@ -75,7 +76,7 @@ data DiffStat = DiffStat
     { diffStatFile  :: !Text  -- ^ file name
     , diffStatCount :: !Text  -- ^ number of changed lines
     , diffStatSigns :: !Text  -- ^ + and - stats
-    }
+    } deriving stock (Show)
 
 {- | This command parses diff stats in the following format:
 
@@ -110,15 +111,18 @@ showPrettyDiff commit = do
         showConlictFiles
 
     -- 2. Output pretty diff
-    diffName <- map words   . lines <$> "git" $| ["diff", commit, "--name-status"]
-    diffStat <- map toStats . lines <$> "git" $| ["diff", commit, "--stat", "--color=always"]
+    diffName <- toDiffLines <$> "git" $| ["diff", commit, "--name-status"]
+    diffStat <- toStatLines <$> "git" $| ["diff", commit, "--stat", "--color=always"]
     let fileTypes = sortWith diffNameFile $ mapMaybe parseDiffName diffName
     let fileStats = sortWith diffStatFile $ mapMaybe parseDiffStat diffStat
     let rows = zipWith joinDiffs fileTypes fileStats
     putText $ formatTableAligned rows
   where
-    toStats :: Text -> [Text]
-    toStats = foldMap words . T.split (== '|')
+    toDiffLines :: Text -> [[Text]]
+    toDiffLines = map words . lines
+
+    toStatLines :: Text -> [[Text]]
+    toStatLines = map (foldMap words . T.split (== '|')) . safeInit . lines
 
     joinDiffs :: DiffName -> DiffStat -> (Text, Text, Text, Text)
     joinDiffs DiffName{..} DiffStat{..} =
@@ -150,6 +154,11 @@ showPrettyDiff commit = do
 
         maxOn :: (a -> Text) -> [a] -> Int
         maxOn f = foldl' (\acc a -> max acc $ T.length $ f a) 0
+
+-- | Like 'init' but doesn't crash on empty lists.
+safeInit :: [a] -> [a]
+safeInit []     = []
+safeInit (x:xs) = init (x :| xs)
 
 {- | Returns 'True' if rebase is in progress. Calls magic comand and if this
 command exits with code 1 then there's no rebase in progress.

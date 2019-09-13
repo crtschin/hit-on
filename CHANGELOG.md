@@ -3,6 +3,10 @@
 `hit-on` uses [PVP Versioning][1].
 The changelog is available [on GitHub][2].
 
+### Unreleased
+
+* More fixes to the `hit status` command.
+
 ### 0.1.0.0 — Aug 3, 2019
 
 * [#85](https://github.com/kowainik/hit-on/issues/85):
